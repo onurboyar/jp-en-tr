@@ -8,6 +8,7 @@ D_MODEL = 512
 HEADS = 8
 N = 6
 
+import gradio as gr
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -507,4 +508,20 @@ def translate(model, src, max_len=80, custom_sentence=False):
     return ' '.join([EN_TEXT.vocab.itos[ix] for ix in outputs[:i]])
 
 
-print(translate(model, '日本語は難しいと思います', custom_sentence=True))
+#print(translate(model, '日本語は難しいと思います', custom_sentence=True))
+
+# Define the translation function to be used by Gradio
+def translate_text(input_text):
+    return translate(model, input_text, custom_sentence=True)
+
+# Create the Gradio interface
+iface = gr.Interface(
+    fn=translate_text,
+    inputs="text",
+    outputs="text",
+    title="Japanese to English Translator",
+    description="Enter Japanese text to get the English translation."
+)
+
+# Launch the Gradio app
+iface.launch()
