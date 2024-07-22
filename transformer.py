@@ -463,7 +463,7 @@ def train_model(model, epochs, print_every=50):
         torch.save({
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optim.state_dict(),
-            }, f'model_epoch_{epoch}.pth')
+            }, f'model.pth')
 
 
 model.to(device)
