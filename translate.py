@@ -33,12 +33,12 @@ else:
 print(f'Running on device: {device}')
 
 
-anki_dataset_df = pd.read_csv(ANKI_LEXICON_PATH,sep='\t',names=['Japanese','English']) 
-kyoto_lexicon_df = pd.read_csv(KYOTO_LEXICON_PATH, on_bad_lines='warn')
-anki_dataset_df.dropna(inplace=True)
-kyoto_lexicon_df = kyoto_lexicon_df[['日本語', '英語']]
-kyoto_lexicon_df.columns = ['Japanese', 'English']
-kyoto_lexicon_df.dropna(inplace=True)
+# anki_dataset_df = pd.read_csv(ANKI_LEXICON_PATH,sep='\t',names=['Japanese','English']) 
+# kyoto_lexicon_df = pd.read_csv(KYOTO_LEXICON_PATH, on_bad_lines='warn')
+# anki_dataset_df.dropna(inplace=True)
+# kyoto_lexicon_df = kyoto_lexicon_df[['日本語', '英語']]
+# kyoto_lexicon_df.columns = ['Japanese', 'English']
+# kyoto_lexicon_df.dropna(inplace=True)
 JA = spacy.blank('ja')
 EN = spacy.load("en_core_web_sm")
 
@@ -51,13 +51,13 @@ def tokenize_en(sentence):
 
 JA_TEXT = Field(tokenize=tokenize_ja) 
 EN_TEXT = Field(tokenize=tokenize_en, init_token='<sos>', eos_token='<eos>') 
-frames = [kyoto_lexicon_df, anki_dataset_df]
-merged_dataset_df = pd.concat(frames)
-# train, val, test = train_val_test_split(kyoto_lexicon_df, test_size=0.3)
-train, val, test = np.split(merged_dataset_df.sample(frac=1), [int(.6*len(merged_dataset_df)), int(.8*len(merged_dataset_df))])
-train.to_csv('train.csv', index=False)
-val.to_csv('val.csv', index=False) 
-test.to_csv('test.csv', index=False) 
+# frames = [kyoto_lexicon_df, anki_dataset_df]
+# merged_dataset_df = pd.concat(frames)
+# # train, val, test = train_val_test_split(kyoto_lexicon_df, test_size=0.3)
+# train, val, test = np.split(merged_dataset_df.sample(frac=1), [int(.6*len(merged_dataset_df)), int(.8*len(merged_dataset_df))])
+# train.to_csv('train.csv', index=False)
+# val.to_csv('val.csv', index=False) 
+# test.to_csv('test.csv', index=False) 
 
 data_fields = [('Japanese', JA_TEXT), ('English', EN_TEXT)]
 
