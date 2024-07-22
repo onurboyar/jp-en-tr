@@ -524,4 +524,4 @@ iface = gr.Interface(
 )
 
 # Launch the Gradio app
-iface.launch()
+iface.launch(share=True)
