@@ -465,7 +465,7 @@ def train_model(model, epochs, print_every=50):
                 'optimizer_state_dict': optim.state_dict(),
             }, f'model_epoch_{epoch}.pth')
 
-checkpoint = torch.load("model_epoch_9.pth", map_location=device)
+checkpoint = torch.load("model.pth", map_location=device)
 
 
 model.load_state_dict(checkpoint['model_state_dict'])
