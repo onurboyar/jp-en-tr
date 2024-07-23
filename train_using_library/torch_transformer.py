@@ -183,17 +183,24 @@ class PositionalEncoder(nn.Module):
 def create_masks(src, trg):
     src_pad = JA_TEXT.vocab.stoi['<pad>']
     trg_pad = EN_TEXT.vocab.stoi['<pad>']
-    
+
+    # Source mask
     src_mask = (src != src_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, src_seq_len]
+    src_mask = src_mask.to(device)
+
+    # Target padding mask
     trg_pad_mask = (trg != trg_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, trg_seq_len]
-    
+
+    # No peak mask
     size = trg.size(1)  # Get the target sequence length
     nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
-    
-    trg_mask = trg_pad_mask.squeeze(1) & nopeak_mask.bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
 
-    return src_mask.squeeze(1), trg_mask
+    # Combine padding mask and no peak mask
+    trg_mask = trg_pad_mask & nopeak_mask.unsqueeze(0)  # Shape: [batch_size, trg_seq_len, trg_seq_len]
+
+    return src_mask, trg_mask
+
 
 
 class MultiHeadAttention(nn.Module):
@@ -394,7 +401,7 @@ class TransformerModel(nn.Module):
         trg = self.positional_encoding(trg)
         src = src.transpose(0, 1)
         trg = trg.transpose(0, 1)
-        transformer_out = self.transformer(src, trg, src_mask, trg_mask)
+        transformer_out = self.transformer(src, trg, src_key_padding_mask=src_mask, tgt_mask=trg_mask)
         output = self.fc_out(transformer_out)
         return output.transpose(0, 1)
 
@@ -446,3 +453,4 @@ def train_model(model, epochs, print_every=50):
 
 model.to(device)
 train_model(model, EPOCHS)
+
