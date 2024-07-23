@@ -168,41 +168,22 @@ class PositionalEncoder(nn.Module):
         return x
 
 
-# def create_masks(src, trg):
-#     src_mask = (src != JA_TEXT.vocab.stoi['<pad>']).unsqueeze(1).unsqueeze(2)
-#     trg_pad_mask = (trg != EN_TEXT.vocab.stoi['<pad>']).unsqueeze(1).unsqueeze(2)
-#     size = trg.size(1)
-#     nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
-#     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
-#     trg_mask = trg_pad_mask & nopeak_mask.bool()
-#     print(src_mask.size())
-#     print(trg_mask.size())
-
-#     return src_mask, trg_mask
-
-def create_masks(src, trg):
-    src_pad = JA_TEXT.vocab.stoi['<pad>']
-    trg_pad = EN_TEXT.vocab.stoi['<pad>']
-
-    # Source mask
-    src_mask = (src != src_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, src_seq_len]
-    src_mask = src_mask.to(device)
-
-    # Target padding mask
-    trg_pad_mask = (trg != trg_pad) #.unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, trg_seq_len]
-
-    # No peak mask
-    size = trg.size(1)  # Get the target sequence length
-    nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
-    nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
-
-    # Combine padding mask and no peak mask
-    print(trg_pad_mask.size())
-    print(nopeak_mask.size())
-    trg_mask = trg_pad_mask & nopeak_mask.bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
-
-    return src_mask, trg_mask
-
+def create_masks(input_seq, target_seq):
+    # print("inside create_masks")
+    input_pad = JA_TEXT.vocab.stoi['<pad>']
+    # creates mask with 0s wherever there is padding in the input
+    input_msk = (input_seq != input_pad).unsqueeze(1)
+    
+    target_pad = EN_TEXT.vocab.stoi['<pad>']
+    target_msk = (target_seq != target_pad).unsqueeze(1)
+    size = target_seq.size(1) # get seq_len for matrix
+    nopeak_mask = np.triu(np.ones((1, size, size)), k=1).astype(np.uint8)
+    nopeak_mask = torch.autograd.Variable(torch.from_numpy(nopeak_mask) == 0).to(device)
+    target_msk = target_msk & nopeak_mask
+    
+    # print(input_msk)
+    # print(target_msk)
+    return input_msk, target_msk
 
 
 class MultiHeadAttention(nn.Module):
@@ -387,31 +368,41 @@ class Decoder(nn.Module):
         return self.norm(x)
 
 
-class TransformerModel(nn.Module):
-    def __init__(self, src_vocab_size, trg_vocab_size, d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward):
-        super(TransformerModel, self).__init__()
-        self.src_embedding = nn.Embedding(src_vocab_size, d_model)
-        self.trg_embedding = nn.Embedding(trg_vocab_size, d_model)
+class Transformer(nn.Module):
+    def __init__(self, src_vocab, trg_vocab, d_model, N, heads):
+        super().__init__()
+        self.encoder_embedding = nn.Embedding(src_vocab, d_model)
+        self.decoder_embedding = nn.Embedding(trg_vocab, d_model)
         self.positional_encoding = PositionalEncoder(d_model)
-        self.transformer = nn.Transformer(d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward)
-        self.fc_out = nn.Linear(d_model, trg_vocab_size)
-        
+        self.transformer = nn.Transformer(
+            d_model, heads, N, N, dim_feedforward=2048, dropout=0.1
+        )
+        self.fc_out = nn.Linear(d_model, trg_vocab)
+    
     def forward(self, src, trg, src_mask, trg_mask):
-        src = self.src_embedding(src) * math.sqrt(D_MODEL)
-        trg = self.trg_embedding(trg) * math.sqrt(D_MODEL)
-        src = self.positional_encoding(src)
-        trg = self.positional_encoding(trg)
-        src = src.transpose(0, 1)
-        trg = trg.transpose(0, 1)
-        transformer_out = self.transformer(src, trg, src_key_padding_mask=src_mask, tgt_mask=trg_mask)
-        output = self.fc_out(transformer_out)
-        return output.transpose(0, 1)
+        src_emb = self.encoder_embedding(src) * math.sqrt(D_MODEL)
+        trg_emb = self.decoder_embedding(trg) * math.sqrt(D_MODEL)
+        src_emb = self.positional_encoding(src_emb)
+        trg_emb = self.positional_encoding(trg_emb)
+        
+        src_emb = src_emb.transpose(0, 1)  # Transformer expects [seq_len, batch_size, d_model]
+        trg_emb = trg_emb.transpose(0, 1)  # Transformer expects [seq_len, batch_size, d_model]
+        
+        memory = self.transformer.encoder(src_emb, src_key_padding_mask=src_mask.squeeze(1))
+        output = self.transformer.decoder(trg_emb, memory, tgt_mask=trg_mask, memory_key_padding_mask=src_mask.squeeze(1))
+        
+        output = output.transpose(0, 1)  # Back to [batch_size, seq_len, d_model]
+        return self.fc_out(output)
+
+# we don't perform softmax on the output as this will be handled 
+# automatically by our loss function
 
 
-src_vocab_size = len(JA_TEXT.vocab)
-trg_vocab_size = len(EN_TEXT.vocab)
 
-model = TransformerModel(src_vocab_size, trg_vocab_size, D_MODEL, HEADS, N, N, 2048).to(device)
+src_vocab = len(JA_TEXT.vocab)
+trg_vocab = len(EN_TEXT.vocab)
+
+model = Transformer(src_vocab, trg_vocab, D_MODEL, N, HEADS).to(device)
 
 for p in model.parameters():
     if p.dim() > 1:
@@ -431,7 +422,7 @@ def train_model(model, epochs, print_every=50):
             trg = batch.English.transpose(0, 1).to(device)
             trg_input = trg[:, :-1]
             targets = trg[:, 1:].contiguous().view(-1)
-            print("anan")
+            
             src_mask, trg_mask = create_masks(src, trg_input)
             
             optim.zero_grad()
@@ -452,8 +443,7 @@ def train_model(model, epochs, print_every=50):
         torch.save({
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optim.state_dict(),
-        }, f'model_2.pth')
+        }, f'model.pth')
 
 model.to(device)
 train_model(model, EPOCHS)
-
