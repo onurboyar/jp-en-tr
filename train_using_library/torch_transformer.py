@@ -9,8 +9,8 @@ from datetime import datetime
 import torch.nn.functional as F
 
 # Paths
-ANKI_LEXICON_PATH = '../Datasets/eng_jpn.txt'
-KYOTO_LEXICON_PATH = '../Datasets/kyoto_lexicon.csv'
+ANKI_LEXICON_PATH = 'Datasets/eng_jpn.txt'
+KYOTO_LEXICON_PATH = 'Datasets/kyoto_lexicon.csv'
 
 # Hyperparameters
 BATCH_SIZE = 20
@@ -97,9 +97,6 @@ class PositionalEncoder(nn.Module):
         x = x + self.pe[:, :seq_len]
         return x
 
-# Define maximum sequence length
-MAX_SEQ_LEN = 23  # You can adjust this based on your dataset
-
 def pad_sequence(seq, max_len, pad_value):
     if seq.size(1) < max_len:
         pad_size = max_len - seq.size(1)
@@ -113,34 +110,30 @@ def create_masks(src, trg, src_pad, trg_pad, max_len):
     print(src.size())  # Debugging statement
     print(trg.size())  # Debugging statement
 
-    src_mask = (src != src_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, src_seq_len]
-    
-    trg_pad_mask = (trg != trg_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, trg_seq_len]
-    size = trg.size(1)
-    nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
-    nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
-    trg_mask = nopeak_mask & trg_pad_mask.squeeze(1)  # Shape: [batch_size, trg_seq_len, trg_seq_len]
-
-    src_mask = src_mask.squeeze(1)  # Shape: [batch_size, 1, src_seq_len]
-
-    return src_mask, trg_mask, src, trg
-
-"""
-def create_masks(src, trg, src_pad, trg_pad):
-    print(src.size())
-    print(trg.size())
-    print(src_pad)
-    print(trg_pad)
-
     src_mask = (src != src_pad).unsqueeze(1)  # Shape: [batch_size, 1, src_seq_len]
     trg_pad_mask = (trg != trg_pad).unsqueeze(1)  # Shape: [batch_size, 1, trg_seq_len]
     size = trg.size(1)
     nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
-    trg_mask = trg_pad_mask & nopeak_mask.bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
-    return src_mask, trg_mask
-"""
+    trg_mask = nopeak_mask & trg_pad_mask.squeeze(1).bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
 
+    src_mask = src_mask.squeeze(1)  # Shape: [batch_size, src_seq_len]
+
+    return src_mask, trg_mask, src, trg
+
+def find_max_len(data_iter):
+    max_src_len = 0
+    max_trg_len = 0
+    for batch in data_iter:
+        src = batch.Japanese.transpose(0, 1)
+        trg = batch.English.transpose(0, 1)
+        max_src_len = max(max_src_len, src.size(1))
+        max_trg_len = max(max_trg_len, trg.size(1))
+    return max_src_len, max_trg_len
+
+max_src_len, max_trg_len = find_max_len(train_iter)
+MAX_SEQ_LEN = max(max_src_len, max_trg_len)
+print(f'Max Sequence Length: {MAX_SEQ_LEN}')
 
 class TransformerModel(nn.Module):
     def __init__(self, src_vocab, trg_vocab, d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward, max_seq_len):
@@ -157,11 +150,10 @@ class TransformerModel(nn.Module):
         output = self.out(output)
         return output
 
-
 # Model parameters
 src_vocab_size = len(JA_TEXT.vocab)
 trg_vocab_size = len(EN_TEXT.vocab)
-model = TransformerModel(src_vocab_size, trg_vocab_size, D_MODEL, HEADS, N, N, 2048, 200).to(device)
+model = TransformerModel(src_vocab_size, trg_vocab_size, D_MODEL, HEADS, N, N, 2048, MAX_SEQ_LEN).to(device)
 
 # Initialize optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
@@ -192,10 +184,6 @@ def train_model(model, epochs):
                 print(f'Epoch [{epoch+1}/{epochs}], Step [{i+1}/{len(train_iter)}], Loss: {loss.item():.4f}')
         print(f'Epoch [{epoch+1}/{epochs}], Total Loss: {total_loss/len(train_iter):.4f}')
         torch.save(model.state_dict(), f'transformer_epoch_{epoch+1}.pth')
-
-model.to(device)
-train_model(model, EPOCHS)
-
 
 model.to(device)
 train_model(model, EPOCHS)
