@@ -98,10 +98,10 @@ class PositionalEncoder(nn.Module):
         return x
 
 def create_masks(src, trg, src_pad, trg_pad):
-    src_mask = (src != src_pad).unsqueeze(-2)
-    trg_pad_mask = (trg != trg_pad).unsqueeze(-2)
+    src_mask = (src != src_pad).unsqueeze(1).unsqueeze(2)
+    trg_pad_mask = (trg != trg_pad).unsqueeze(1).unsqueeze(2)
     size = trg.size(1)
-    nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
+    nopeak_mask = torch.triu(torch.ones((1, size, size), device=device) == 1).transpose(0, 1)
     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
     trg_mask = trg_pad_mask & nopeak_mask.bool()
     return src_mask, trg_mask
@@ -154,7 +154,7 @@ def train_model(model, epochs):
             if (i + 1) % 50 == 0:
                 print(f'Epoch [{epoch+1}/{epochs}], Step [{i+1}/{len(train_iter)}], Loss: {loss.item():.4f}')
         print(f'Epoch [{epoch+1}/{epochs}], Total Loss: {total_loss/len(train_iter):.4f}')
-        torch.save(model.state_dict(), f'transformer.pth')
+        torch.save(model.state_dict(), f'transformer_epoch_{epoch+1}.pth')
 
 model.to(device)
 train_model(model, EPOCHS)
