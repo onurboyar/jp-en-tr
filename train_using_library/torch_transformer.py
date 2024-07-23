@@ -7,6 +7,7 @@ EPOCHS = 100
 D_MODEL = 512
 HEADS = 1
 N = 6
+CUDA_LAUNCH_BLOCKING=1
 
 import torch
 from torch import nn
@@ -401,7 +402,7 @@ class SMILESTransformer(nn.Module):
         src = self.embedding(src)
         src = self.pos_encoding(src)
         src = src.permute(1, 0, 2)  # [seq_len, batch_size, d_model]
-        src_mask = self.transformer.generate_square_subsequent_mask(src.size(0)) #.to(self.device)
+        src_mask = self.transformer.generate_square_subsequent_mask(src.size(0)).to(self.device)
         memory = self.transformer.encoder(src, src_mask)
         return memory
 
@@ -409,7 +410,7 @@ class SMILESTransformer(nn.Module):
         tgt = self.embedding(tgt)
         tgt = self.pos_encoding(tgt)
         tgt = tgt.permute(1, 0, 2)  # [seq_len, batch_size, d_model]
-        tgt_mask = self.transformer.generate_square_subsequent_mask(tgt.size(0)) #.to(self.device)
+        tgt_mask = self.transformer.generate_square_subsequent_mask(tgt.size(0)).to(self.device)
         output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
         output = output.permute(1, 0, 2)  # [batch_size, seq_len, d_model]
         return self.fc_out(output)
