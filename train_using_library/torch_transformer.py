@@ -9,8 +9,8 @@ from datetime import datetime
 import torch.nn.functional as F
 
 # Paths
-ANKI_LEXICON_PATH = 'Datasets/eng_jpn.txt'
-KYOTO_LEXICON_PATH = 'Datasets/kyoto_lexicon.csv'
+ANKI_LEXICON_PATH = '../Datasets/eng_jpn.txt'
+KYOTO_LEXICON_PATH = '../Datasets/kyoto_lexicon.csv'
 
 # Hyperparameters
 BATCH_SIZE = 20
@@ -154,7 +154,7 @@ def train_model(model, epochs):
             if (i + 1) % 50 == 0:
                 print(f'Epoch [{epoch+1}/{epochs}], Step [{i+1}/{len(train_iter)}], Loss: {loss.item():.4f}')
         print(f'Epoch [{epoch+1}/{epochs}], Total Loss: {total_loss/len(train_iter):.4f}')
-        torch.save(model.state_dict(), f'transformer_epoch_{epoch+1}.pth')
+        torch.save(model.state_dict(), f'transformer.pth')
 
 model.to(device)
 train_model(model, EPOCHS)
