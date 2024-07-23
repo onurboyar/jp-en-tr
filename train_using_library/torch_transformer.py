@@ -97,21 +97,49 @@ class PositionalEncoder(nn.Module):
         x = x + self.pe[:, :seq_len]
         return x
 
-def create_masks(src, trg, src_pad, trg_pad):
-    print(src.size())
-    print(trg.size())
+# Define maximum sequence length
+MAX_SEQ_LEN = 23  # You can adjust this based on your dataset
 
-    src_mask = (src != src_pad).unsqueeze(1)  # Shape: [batch_size, 1, src_seq_len]
+def pad_sequence(seq, max_len, pad_value):
+    if seq.size(1) < max_len:
+        pad_size = max_len - seq.size(1)
+        seq = F.pad(seq, (0, pad_size), value=pad_value)
+    return seq
+
+def create_masks(src, trg, src_pad, trg_pad, max_len):
+    src = pad_sequence(src, max_len, src_pad)
+    trg = pad_sequence(trg, max_len, trg_pad)
+
+    print(src.size())  # Debugging statement
+    print(trg.size())  # Debugging statement
+
+    src_mask = (src != src_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, src_seq_len]
     
-    trg_pad_mask = (trg != trg_pad).unsqueeze(1)  # Shape: [batch_size, 1, trg_seq_len]
+    trg_pad_mask = (trg != trg_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, trg_seq_len]
     size = trg.size(1)
     nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
     trg_mask = nopeak_mask & trg_pad_mask.squeeze(1)  # Shape: [batch_size, trg_seq_len, trg_seq_len]
 
-    src_mask = src_mask.squeeze(1)  # Shape: [batch_size, src_seq_len]
+    src_mask = src_mask.squeeze(1)  # Shape: [batch_size, 1, src_seq_len]
 
+    return src_mask, trg_mask, src, trg
+
+"""
+def create_masks(src, trg, src_pad, trg_pad):
+    print(src.size())
+    print(trg.size())
+    print(src_pad)
+    print(trg_pad)
+
+    src_mask = (src != src_pad).unsqueeze(1)  # Shape: [batch_size, 1, src_seq_len]
+    trg_pad_mask = (trg != trg_pad).unsqueeze(1)  # Shape: [batch_size, 1, trg_seq_len]
+    size = trg.size(1)
+    nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
+    nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
+    trg_mask = trg_pad_mask & nopeak_mask.bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
     return src_mask, trg_mask
+"""
 
 
 class TransformerModel(nn.Module):
@@ -151,7 +179,7 @@ def train_model(model, epochs):
             trg = batch.English.transpose(0, 1).to(device)
             trg_input = trg[:, :-1]
             targets = trg[:, 1:].contiguous().view(-1)
-            src_mask, trg_mask = create_masks(src, trg_input, src_pad, trg_pad)
+            src_mask, trg_mask, src, trg_input = create_masks(src, trg_input, src_pad, trg_pad, MAX_SEQ_LEN)
             
             optimizer.zero_grad()
             preds = model(src, trg_input, src_mask, trg_mask)
