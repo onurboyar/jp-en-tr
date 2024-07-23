@@ -9,8 +9,8 @@ from datetime import datetime
 import torch.nn.functional as F
 
 # Paths
-ANKI_LEXICON_PATH = '../Datasets/eng_jpn.txt'
-KYOTO_LEXICON_PATH = '../Datasets/kyoto_lexicon.csv'
+ANKI_LEXICON_PATH = 'Datasets/eng_jpn.txt'
+KYOTO_LEXICON_PATH = 'Datasets/kyoto_lexicon.csv'
 
 # Hyperparameters
 BATCH_SIZE = 20
@@ -106,7 +106,6 @@ def create_masks(src, trg, src_pad, trg_pad):
     trg_mask = trg_pad_mask & nopeak_mask.bool()
     return src_mask, trg_mask
 
-
 class TransformerModel(nn.Module):
     def __init__(self, src_vocab, trg_vocab, d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward, max_seq_len):
         super(TransformerModel, self).__init__()
@@ -116,8 +115,8 @@ class TransformerModel(nn.Module):
         self.out = nn.Linear(d_model, trg_vocab)
         
     def forward(self, src, trg, src_mask, trg_mask):
-        src = self.src_embed(src)
-        trg = self.trg_embed(trg)
+        src = self.src_embed(src).transpose(0, 1)
+        trg = self.trg_embed(trg).transpose(0, 1)
         output = self.transformer(src, trg, src_mask, trg_mask)
         output = self.out(output)
         return output
@@ -155,7 +154,7 @@ def train_model(model, epochs):
             if (i + 1) % 50 == 0:
                 print(f'Epoch [{epoch+1}/{epochs}], Step [{i+1}/{len(train_iter)}], Loss: {loss.item():.4f}')
         print(f'Epoch [{epoch+1}/{epochs}], Total Loss: {total_loss/len(train_iter):.4f}')
-        torch.save(model.state_dict(), f'transformer.pth')
+        torch.save(model.state_dict(), f'transformer_epoch_{epoch+1}.pth')
 
 model.to(device)
 train_model(model, EPOCHS)
