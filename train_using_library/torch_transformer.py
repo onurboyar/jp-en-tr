@@ -99,12 +99,13 @@ class PositionalEncoder(nn.Module):
 
 def create_masks(src, trg, src_pad, trg_pad):
     src_mask = (src != src_pad).unsqueeze(-2)
-    trg_mask = (trg != trg_pad).unsqueeze(-2)
+    trg_pad_mask = (trg != trg_pad).unsqueeze(-2)
     size = trg.size(1)
-    nopeak_mask = torch.triu(torch.ones(size, size) == 1).transpose(0, 1).to(device)
+    nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
-    trg_mask = trg_mask & nopeak_mask
+    trg_mask = trg_pad_mask & nopeak_mask.bool()
     return src_mask, trg_mask
+
 
 class TransformerModel(nn.Module):
     def __init__(self, src_vocab, trg_vocab, d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward, max_seq_len):
