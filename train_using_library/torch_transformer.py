@@ -5,7 +5,7 @@ BATCH_SIZE = 20
 EPOCHS = 100
 
 D_MODEL = 512
-HEADS = 8
+HEADS = 1
 N = 6
 
 import torch
