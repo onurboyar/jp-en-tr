@@ -385,9 +385,9 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:x.size(0), :]
         return x
 
-class Transformer(nn.Module):
+class SMILESTransformer(nn.Module):
     def __init__(self, vocab_size, max_seq_length, d_model, nhead, num_layers, device):
-        super(Transformer, self).__init__()
+        super(SMILESTransformer, self).__init__()
 
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pos_encoding = PositionalEncoding(d_model, max_seq_length, device)
@@ -419,10 +419,13 @@ class Transformer(nn.Module):
         output = self.decode(memory, tgt)
         return output
 
+# Initialize and set device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 src_vocab = len(JA_TEXT.vocab)
 trg_vocab = len(EN_TEXT.vocab)
 
-model = Transformer(src_vocab, trg_vocab, D_MODEL, HEADS, N, device).to(device)
+model = SMILESTransformer(src_vocab, trg_vocab, D_MODEL, HEADS, N, device).to(device)
 
 for p in model.parameters():
     if p.dim() > 1:
@@ -443,7 +446,7 @@ def train_model(model, epochs, print_every=50):
             trg_input = trg[:, :-1]
             targets = trg[:, 1:].contiguous().view(-1)
             
-            #src_mask, trg_mask = create_masks(src, trg_input)
+            src_mask, trg_mask = create_masks(src, trg_input)
             
             optim.zero_grad()
             preds = model(src, trg_input)
