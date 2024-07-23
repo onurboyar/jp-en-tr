@@ -7,3 +7,8 @@ This code uses a publicly available implementation of transformer architecture f
 
 > python transformer.py
 
+This code trains the model for 100 epochs. Next, you can refer to the inference folder and run the
+
+> python translate.py
+
+This will give you the URL for the Gradio application, which looks like the above image.
