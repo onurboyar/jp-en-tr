@@ -197,7 +197,9 @@ def create_masks(src, trg):
     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
 
     # Combine padding mask and no peak mask
-    trg_mask = trg_pad_mask & nopeak_mask.unsqueeze(0)  # Shape: [batch_size, trg_seq_len, trg_seq_len]
+    print(trg_pad_mask.size())
+    print(nopeak_mask.size())
+    trg_mask = trg_pad_mask & nopeak_mask.bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
 
     return src_mask, trg_mask
 
