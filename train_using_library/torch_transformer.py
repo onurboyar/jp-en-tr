@@ -431,6 +431,7 @@ def train_model(model, epochs, print_every=50):
             trg = batch.English.transpose(0, 1).to(device)
             trg_input = trg[:, :-1]
             targets = trg[:, 1:].contiguous().view(-1)
+            print("anan")
             src_mask, trg_mask = create_masks(src, trg_input)
             
             optim.zero_grad()
