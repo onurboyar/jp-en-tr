@@ -189,7 +189,7 @@ def create_masks(src, trg):
     src_mask = src_mask.to(device)
 
     # Target padding mask
-    trg_pad_mask = (trg != trg_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, trg_seq_len]
+    trg_pad_mask = (trg != trg_pad) #.unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, trg_seq_len]
 
     # No peak mask
     size = trg.size(1)  # Get the target sequence length
