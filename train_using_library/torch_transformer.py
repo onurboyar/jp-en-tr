@@ -374,9 +374,7 @@ class Transformer(nn.Module):
         self.encoder_embedding = nn.Embedding(src_vocab, d_model)
         self.decoder_embedding = nn.Embedding(trg_vocab, d_model)
         self.positional_encoding = PositionalEncoder(d_model)
-        self.transformer = nn.Transformer(
-            d_model, heads, N, N, dim_feedforward=2048, dropout=0.1
-        )
+        self.transformer = nn.Transformer(d_model, heads, N, N, dim_feedforward=2048, dropout=0.1)
         self.fc_out = nn.Linear(d_model, trg_vocab)
     
     def forward(self, src, trg, src_mask, trg_mask):
@@ -388,15 +386,21 @@ class Transformer(nn.Module):
         src_emb = src_emb.transpose(0, 1)  # Transformer expects [seq_len, batch_size, d_model]
         trg_emb = trg_emb.transpose(0, 1)  # Transformer expects [seq_len, batch_size, d_model]
         
-        memory = self.transformer.encoder(src_emb, src_key_padding_mask=src_mask.squeeze(1))
-        output = self.transformer.decoder(trg_emb, memory, tgt_mask=trg_mask, memory_key_padding_mask=src_mask.squeeze(1))
+        # Correctly expand the masks to the required shape for multi-head attention
+        if src_mask is not None:
+            src_mask = src_mask.squeeze(1).repeat(self.transformer.encoder.layers[0].self_attn.num_heads, 1, 1)
+        if trg_mask is not None:
+            trg_mask = trg_mask.repeat(self.transformer.decoder.layers[0].self_attn.num_heads, 1, 1)
+        
+        memory = self.transformer.encoder(src_emb, src_key_padding_mask=src_mask)
+        output = self.transformer.decoder(trg_emb, memory, tgt_mask=trg_mask, memory_key_padding_mask=src_mask)
         
         output = output.transpose(0, 1)  # Back to [batch_size, seq_len, d_model]
         return self.fc_out(output)
 
+
 # we don't perform softmax on the output as this will be handled 
 # automatically by our loss function
-
 
 
 src_vocab = len(JA_TEXT.vocab)
