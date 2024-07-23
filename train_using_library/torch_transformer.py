@@ -98,10 +98,10 @@ class PositionalEncoder(nn.Module):
         return x
 
 def create_masks(src, trg, src_pad, trg_pad):
-    print(src.size)
-    print(trg.size)
-    print(src_pad.size)
-    print(trg_pad.size)
+    print(src.size())
+    print(trg.size())
+    print(src_pad)
+    print(trg_pad)
 
     src_mask = (src != src_pad).unsqueeze(1)  # Shape: [batch_size, 1, src_seq_len]
     trg_pad_mask = (trg != trg_pad).unsqueeze(1)  # Shape: [batch_size, 1, trg_seq_len]
