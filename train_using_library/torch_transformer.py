@@ -168,15 +168,32 @@ class PositionalEncoder(nn.Module):
         return x
 
 
+# def create_masks(src, trg):
+#     src_mask = (src != JA_TEXT.vocab.stoi['<pad>']).unsqueeze(1).unsqueeze(2)
+#     trg_pad_mask = (trg != EN_TEXT.vocab.stoi['<pad>']).unsqueeze(1).unsqueeze(2)
+#     size = trg.size(1)
+#     nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
+#     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
+#     trg_mask = trg_pad_mask & nopeak_mask.bool()
+#     print(src_mask.size())
+#     print(trg_mask.size())
+
+#     return src_mask, trg_mask
+
 def create_masks(src, trg):
-    src_mask = (src != JA_TEXT.vocab.stoi['<pad>']).unsqueeze(1).unsqueeze(2)
-    trg_pad_mask = (trg != EN_TEXT.vocab.stoi['<pad>']).unsqueeze(1).unsqueeze(2)
-    size = trg.size(1)
+    src_pad = JA_TEXT.vocab.stoi['<pad>']
+    trg_pad = EN_TEXT.vocab.stoi['<pad>']
+    
+    src_mask = (src != src_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, src_seq_len]
+    trg_pad_mask = (trg != trg_pad).unsqueeze(1).unsqueeze(2)  # Shape: [batch_size, 1, 1, trg_seq_len]
+    
+    size = trg.size(1)  # Get the target sequence length
     nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
-    trg_mask = trg_pad_mask & nopeak_mask.bool()
-    return src_mask, trg_mask
+    
+    trg_mask = trg_pad_mask.squeeze(1) & nopeak_mask.bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
 
+    return src_mask.squeeze(1), trg_mask
 
 
 class MultiHeadAttention(nn.Module):
