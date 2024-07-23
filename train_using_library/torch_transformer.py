@@ -368,45 +368,61 @@ class Decoder(nn.Module):
         return self.norm(x)
 
 
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_seq_len, device):
+        super(PositionalEncoding, self).__init__()
+        self.device = device
+
+        pe = torch.zeros(max_seq_len, d_model, device=device)
+        position = torch.arange(0, max_seq_len, dtype=torch.float, device=device).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2, dtype=torch.float, device=device) * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + self.pe[:x.size(0), :]
+        return x
+
 class Transformer(nn.Module):
-    def __init__(self, src_vocab, trg_vocab, d_model, N, heads):
-        super().__init__()
-        self.encoder_embedding = nn.Embedding(src_vocab, d_model)
-        self.decoder_embedding = nn.Embedding(trg_vocab, d_model)
-        self.positional_encoding = PositionalEncoder(d_model)
-        self.transformer = nn.Transformer(d_model, heads, N, N, dim_feedforward=2048, dropout=0.1)
-        self.fc_out = nn.Linear(d_model, trg_vocab)
-    
-    def forward(self, src, trg, src_mask, trg_mask):
-        src_emb = self.encoder_embedding(src) * math.sqrt(D_MODEL)
-        trg_emb = self.decoder_embedding(trg) * math.sqrt(D_MODEL)
-        src_emb = self.positional_encoding(src_emb)
-        trg_emb = self.positional_encoding(trg_emb)
-        
-        src_emb = src_emb.transpose(0, 1)  # Transformer expects [seq_len, batch_size, d_model]
-        trg_emb = trg_emb.transpose(0, 1)  # Transformer expects [seq_len, batch_size, d_model]
-        
-        # Correctly expand the masks to the required shape for multi-head attention
-        if src_mask is not None:
-            src_mask = src_mask.squeeze(1).repeat(self.transformer.encoder.layers[0].self_attn.num_heads, 1, 1)
-        if trg_mask is not None:
-            trg_mask = trg_mask.repeat(self.transformer.decoder.layers[0].self_attn.num_heads, 1, 1)
-        
-        memory = self.transformer.encoder(src_emb, src_key_padding_mask=src_mask)
-        output = self.transformer.decoder(trg_emb, memory, tgt_mask=trg_mask, memory_key_padding_mask=src_mask)
-        
-        output = output.transpose(0, 1)  # Back to [batch_size, seq_len, d_model]
+    def __init__(self, vocab_size, max_seq_length, d_model, nhead, num_layers, device):
+        super(Transformer, self).__init__()
+
+        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.pos_encoding = PositionalEncoding(d_model, max_seq_length, device)
+        self.transformer = nn.Transformer(d_model, nhead, num_layers)
+        self.fc_out = nn.Linear(d_model, vocab_size)
+        self.max_seq_length = max_seq_length
+        self.d_model = d_model
+        self.device = device
+
+    def encode(self, src):
+        src = self.embedding(src)
+        src = self.pos_encoding(src)
+        src = src.permute(1, 0, 2)  # [seq_len, batch_size, d_model]
+        src_mask = self.transformer.generate_square_subsequent_mask(src.size(0)).to(self.device)
+        memory = self.transformer.encoder(src, src_mask)
+        return memory
+
+    def decode(self, memory, tgt):
+        tgt = self.embedding(tgt)
+        tgt = self.pos_encoding(tgt)
+        tgt = tgt.permute(1, 0, 2)  # [seq_len, batch_size, d_model]
+        tgt_mask = self.transformer.generate_square_subsequent_mask(tgt.size(0)).to(self.device)
+        output = self.transformer.decoder(tgt, memory, tgt_mask=tgt_mask)
+        output = output.permute(1, 0, 2)  # [batch_size, seq_len, d_model]
         return self.fc_out(output)
 
-
-# we don't perform softmax on the output as this will be handled 
-# automatically by our loss function
-
+    def forward(self, src, tgt):
+        memory = self.encode(src)
+        output = self.decode(memory, tgt)
+        return output
 
 src_vocab = len(JA_TEXT.vocab)
 trg_vocab = len(EN_TEXT.vocab)
 
-model = Transformer(src_vocab, trg_vocab, D_MODEL, N, HEADS).to(device)
+model = Transformer(src_vocab, trg_vocab, D_MODEL, HEADS, N, device).to(device)
 
 for p in model.parameters():
     if p.dim() > 1:
@@ -427,10 +443,10 @@ def train_model(model, epochs, print_every=50):
             trg_input = trg[:, :-1]
             targets = trg[:, 1:].contiguous().view(-1)
             
-            src_mask, trg_mask = create_masks(src, trg_input)
+            #src_mask, trg_mask = create_masks(src, trg_input)
             
             optim.zero_grad()
-            preds = model(src, trg_input, src_mask, trg_mask)
+            preds = model(src, trg_input)
             
             loss = F.cross_entropy(preds.view(-1, preds.size(-1)), targets, ignore_index=EN_TEXT.vocab.stoi['<pad>'])
             loss.backward()
