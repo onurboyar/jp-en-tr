@@ -98,13 +98,14 @@ class PositionalEncoder(nn.Module):
         return x
 
 def create_masks(src, trg, src_pad, trg_pad):
-    src_mask = (src != src_pad).unsqueeze(1).unsqueeze(2)
-    trg_pad_mask = (trg != trg_pad).unsqueeze(1).unsqueeze(2)
+    src_mask = (src != src_pad).unsqueeze(1)  # Shape: [batch_size, 1, src_seq_len]
+    trg_pad_mask = (trg != trg_pad).unsqueeze(1)  # Shape: [batch_size, 1, trg_seq_len]
     size = trg.size(1)
-    nopeak_mask = torch.triu(torch.ones((1, size, size), device=device) == 1).transpose(0, 1)
+    nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
-    trg_mask = trg_pad_mask & nopeak_mask.bool()
+    trg_mask = trg_pad_mask & nopeak_mask.bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
     return src_mask, trg_mask
+
 
 class TransformerModel(nn.Module):
     def __init__(self, src_vocab, trg_vocab, d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward, max_seq_len):
@@ -129,6 +130,7 @@ model = TransformerModel(src_vocab_size, trg_vocab_size, D_MODEL, HEADS, N, N, 2
 # Initialize optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
+# Training loop
 # Training loop
 def train_model(model, epochs):
     model.train()
