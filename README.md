@@ -12,3 +12,7 @@ This code trains the model for 100 epochs. Next, you can refer to the inference 
 > python translate.py
 
 This will give you the URL for the Gradio application, which looks like the above image.
+
+Data source comes from:
+
+https://www.kaggle.com/datasets/team-ai/japaneseenglish-bilingual-corpus
