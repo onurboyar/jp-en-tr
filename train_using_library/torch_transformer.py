@@ -107,17 +107,17 @@ def create_masks(src, trg, src_pad, trg_pad, max_len):
     src = pad_sequence(src, max_len, src_pad)
     trg = pad_sequence(trg, max_len, trg_pad)
 
-    print(src.size())  # Debugging statement
-    print(trg.size())  # Debugging statement
+    print(f"src size: {src.size()}")  # Debugging statement
+    print(f"trg size: {trg.size()}")  # Debugging statement
 
     src_mask = (src != src_pad).unsqueeze(1)  # Shape: [batch_size, 1, src_seq_len]
     trg_pad_mask = (trg != trg_pad).unsqueeze(1)  # Shape: [batch_size, 1, trg_seq_len]
     size = trg.size(1)
     nopeak_mask = torch.triu(torch.ones((size, size), device=device) == 1).transpose(0, 1)
     nopeak_mask = nopeak_mask.float().masked_fill(nopeak_mask == 0, float('-inf')).masked_fill(nopeak_mask == 1, float(0.0))
-    trg_mask = nopeak_mask & trg_pad_mask.squeeze(1).bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
+    trg_mask = trg_pad_mask & nopeak_mask.bool()  # Shape: [batch_size, trg_seq_len, trg_seq_len]
 
-    src_mask = src_mask.squeeze(1)  # Shape: [batch_size, src_seq_len]
+    src_mask = src_mask.squeeze(1)  # Shape: [batch_size, 1, src_seq_len]
 
     return src_mask, trg_mask, src, trg
 
