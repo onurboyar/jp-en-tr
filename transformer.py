@@ -2,7 +2,7 @@ ANKI_LEXICON_PATH = 'Datasets/eng_jpn.txt'
 KYOTO_LEXICON_PATH = 'Datasets/kyoto_lexicon.csv'
 
 BATCH_SIZE = 20
-EPOCHS = 100
+EPOCHS = 500
 
 D_MODEL = 512
 HEADS = 8
